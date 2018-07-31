@@ -16,12 +16,21 @@ func New() *Orderbook {
 	return &Orderbook{}
 }
 
-func (order *RestOrder) append(new *RestOrder) chan *RestOrder {
-
+func (order *RestOrder) append(newOrd *RestOrder) *RestOrder {
+	if order == nil{
+		order = newOrd
+		return order
+	}
+	next := order.next
+	order.next = newOrd
+	newOrd.next = next
+	return order
 }
 
-func (order *RestOrder) iterator() chan *RestOrder {
+func (order *RestOrder) iterator() (chan *RestOrder, chan bool) {
 	res := make(chan *RestOrder)
+	stop := make(chan bool, 1)
+
 	go func() {
 		node := order
 		for {
@@ -29,11 +38,17 @@ func (order *RestOrder) iterator() chan *RestOrder {
 				close(res)
 				return
 			}
-			res <- node
+			select{
+				case res <- node:
+				case <-stop:
+					fmt.Println("list killed")
+					close(res)
+					return
+			}
 			node = node.next
 		}
 	}()
-	return res
+	return res, stop
 }
 
 func (orderbook *Orderbook) matchMarket(order *Order) ([]*Trade, *Order) {
@@ -41,11 +56,41 @@ func (orderbook *Orderbook) matchMarket(order *Order) ([]*Trade, *Order) {
 }
 
 func (orderbook *Orderbook) matchLimit(order *Order) []*Trade {
-	list := orderbook.Bids.iterator()
-	for v := range list {
-		fmt.Println("Val:", v)
+	// orderbook.Bids = orderbook.Bids.append(&RestOrder{order, nil})
+	// orderbook.Bids = orderbook.Bids.append(&RestOrder{order, nil})
+
+	// bids, stopBids := orderbook.Bids.iterator()
+	// Asks, stopAsks = orderbook.Asks.iterator()	
+
+	var mySideList *RestOrder
+	var targetSideList *RestOrder
+	var accept func (*Order,*Order) bool
+
+	switch order.Side{
+	case SideBid:
+		mySideList = orderbook.Bids
+		targetSideList = orderbook.Asks
+		accept = func (bid *Order, ask *Order) bool {
+			return bid.Price <= ask.Price
+		}
+	case SideAsk:
+		mySideList = orderbook.Asks
+		targetSideList = orderbook.Bids
+		accept = func (ask *Order, bid *Order) bool {
+			return ask.Price <= bid.Price
+		}
 	}
-	fmt.Println("Finish")
+
+	list, stopIter := targetSideList.iterator()
+	for restOrder := range list {
+		if accept(order, restOrder.order){
+			fmt.Println("Val:", restOrder.order, restOrder.next)
+		}
+	}
+	stopIter<-true
+	mySideList = mySideList.append(&RestOrder{order, nil})
+
+	//fmt.Println("Finish")
 	return nil
 }
 
