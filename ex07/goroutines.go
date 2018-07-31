@@ -13,28 +13,26 @@ import (
 
 type Job float64
 
-type Worker struct {
-	id int
-}
+type Worker int
 
-func (worker *Worker) log(msg string) {
-	fmt.Printf("worker:%d %s\n", worker.id, msg)
+func (worker Worker) log(msg string) {
+	fmt.Printf("worker:%d %s\n", worker, msg)
 }
 
 func (worker *Worker) execute(job Job) {
 	str := "sleep:" + strconv.FormatFloat(float64(job), 'f', 1, 64)
 	worker.log(str)
-	time.Sleep(time.Duration(float64(job)*1000) * time.Millisecond)
+	time.Sleep(time.Duration(float64(job) * float64(time.Second)))
 }
 
-func (worker *Worker) stop(workers chan *Worker) {
+func (worker Worker) stop(workers chan Worker) {
 	worker.log("stopping")
 	workers <- worker
 }
 
-func (worker *Worker) run(
+func (worker Worker) run(
 	job Job,
-	workers chan *Worker,
+	workers chan Worker,
 	jobs chan Job) {
 
 	for {
@@ -53,15 +51,15 @@ func (worker *Worker) run(
 	}
 }
 
-func createWorkers(n int) chan *Worker {
-	workers := make(chan *Worker, n)
+func createWorkers(n int) chan Worker {
+	workers := make(chan Worker, n)
 	for i := 1; i <= n; i++ {
-		workers <- &Worker{i}
+		workers <- Worker(i)
 	}
 	return workers
 }
 
-func catchAllWorkers(workers chan *Worker, n int) {
+func catchAllWorkers(workers chan Worker, n int) {
 	for i := 0; i < n-1; i++ {
 		<-workers
 	}
