@@ -1,10 +1,13 @@
-package goroutines
+package main
 
 import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/signal"
 	"strconv"
+	"sync"
+	"syscall"
 	"time"
 )
 
@@ -24,14 +27,27 @@ func (worker *Worker) execute(job Job) {
 	time.Sleep(time.Duration(float64(job)*1000) * time.Millisecond)
 }
 
-func (worker *Worker) run(job Job, workers chan *Worker, jobs chan Job) {
+func (worker *Worker) stop(workers chan *Worker) {
+	worker.log("stopping")
+	workers <- worker
+}
+
+func (worker *Worker) run(
+	job Job,
+	workers chan *Worker,
+	jobs chan Job) {
+
 	for {
 		worker.execute(job)
+		more := false
 		select {
-		case job = <-jobs:
+		case job, more = <-jobs:
+			if !more {
+				worker.stop(workers)
+				return
+			}
 		default:
-			worker.log("stopping")
-			workers <- worker
+			worker.stop(workers)
 			return
 		}
 	}
@@ -45,18 +61,30 @@ func createWorkers(n int) chan *Worker {
 	return workers
 }
 
-func scheduler(numOfWorkers int, jobs chan Job) {
+func catchAllWorkers(workers chan *Worker, n int) {
+	for i := 0; i < n-1; i++ {
+		<-workers
+	}
+}
+
+func scheduler(numOfWorkers int, jobs chan Job, wg *sync.WaitGroup) {
 	workers := createWorkers(numOfWorkers)
 	for {
 		worker := <-workers
-		job := <-jobs
+		job, success := <-jobs
+
+		if !success {
+			catchAllWorkers(workers, numOfWorkers)
+			wg.Done()
+			return
+		}
+
 		worker.log("spawning")
 		go worker.run(job, workers, jobs)
 	}
 }
 
 func reader(jobs chan Job) {
-
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Split(bufio.ScanLines)
 
@@ -64,15 +92,35 @@ func reader(jobs chan Job) {
 		txt := scanner.Text()
 
 		var job Job
-		fmt.Sscanf(txt, "%f\n", &job)
-
-		jobs <- job
+		_, err := fmt.Sscanf(txt, "%f\n", &job)
+		if err == nil {
+			jobs <- job
+		}
 	}
+	close(jobs)
+}
+
+func stopSignalCheck() {
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		os.Stdin.Close()
+	}()
 }
 
 func Run(poolSize int) {
-	var jobs = make(chan Job, 100)
+	jobs := make(chan Job, 100)
+	var wg sync.WaitGroup
+	wg.Add(1) //scheduler
 
-	go scheduler(poolSize, jobs)
+	go stopSignalCheck()
+	go scheduler(poolSize, jobs, &wg)
 	go reader(jobs)
+
+	wg.Wait()
+}
+
+func main() {
+	Run(5)
 }
