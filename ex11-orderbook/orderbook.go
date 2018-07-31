@@ -7,6 +7,10 @@ type RestOrder struct {
 	next  *RestOrder
 }
 
+type RestOrderList struct{
+	head *RestOrder
+}
+
 type Orderbook struct {
 	Bids *RestOrder
 	Asks *RestOrder
@@ -55,52 +59,65 @@ func (orderbook *Orderbook) matchMarket(order *Order) ([]*Trade, *Order) {
 	return nil, nil
 }
 
-func (orderbook *Orderbook) matchLimit(order *Order) []*Trade {
-	// orderbook.Bids = orderbook.Bids.append(&RestOrder{order, nil})
-	// orderbook.Bids = orderbook.Bids.append(&RestOrder{order, nil})
+func putOrderToRest(list **RestOrder, order *RestOrder) {
 
-	// bids, stopBids := orderbook.Bids.iterator()
-	// Asks, stopAsks = orderbook.Asks.iterator()	
+}
 
-	var mySideList *RestOrder
-	var targetSideList *RestOrder
+func (orderbook *Orderbook) matchLimit(order *Order)  []*Trade{
+	var trades []*Trade = nil
+	fmt.Println("FIRST:", trades, order.Side, order.Price)
+
+	var mySideList **RestOrder
+	var targetSideList **RestOrder
 	var accept func (*Order,*Order) bool
 
 	switch order.Side{
 	case SideBid:
-		mySideList = orderbook.Bids
-		targetSideList = orderbook.Asks
+		mySideList = &orderbook.Bids
+		targetSideList = &orderbook.Asks
 		accept = func (bid *Order, ask *Order) bool {
-			return bid.Price <= ask.Price
+			return bid.Price >= ask.Price
 		}
 	case SideAsk:
-		mySideList = orderbook.Asks
-		targetSideList = orderbook.Bids
+		mySideList = &orderbook.Asks
+		targetSideList = &orderbook.Bids
 		accept = func (ask *Order, bid *Order) bool {
 			return ask.Price <= bid.Price
 		}
 	}
 
-	list, stopIter := targetSideList.iterator()
+	list, stopIter := (*targetSideList).iterator()
 	for restOrder := range list {
+			fmt.Println("OK:", trades, order.Side, order.Price, restOrder.order.Side,  restOrder.order.Price)
 		if accept(order, restOrder.order){
-			fmt.Println("Val:", restOrder.order, restOrder.next)
+			fmt.Println("ACCEPTED:", trades, order.Side, order.Price, restOrder.order.Side,  restOrder.order.Price)
+		
+			trades = append(trades, &Trade{Volume: 10000, Price:  60000000})
+			fmt.Println("trades:", trades[0])
 		}
 	}
 	stopIter<-true
-	mySideList = mySideList.append(&RestOrder{order, nil})
+	//orderbook.Bids = orderbook.Bids.append(&RestOrder{order, nil})
+	*mySideList = (*mySideList).append(&RestOrder{order, nil})
 
-	//fmt.Println("Finish")
-	return nil
+	return trades
 }
 
 func (orderbook *Orderbook) Match(order *Order) ([]*Trade, *Order) {
-	switch order.Kind {
-	case KindMarket:
-		return orderbook.matchMarket(order)
-	case KindLimit:
-		return orderbook.matchLimit(order), nil
-	default:
-		return nil, nil
-	}
+	// var trades []*Trade = make([]*Trade, 1)
+	// trades = append(trades, &Trade{Bid: order, Ask: order, Volume: 10000, Price:  60000000})
+	// fmt.Println("trades:", trades)
+	// return trades, nil
+
+	return orderbook.matchLimit(order), nil
+	
+
+	// switch order.Kind {
+	// case KindMarket:
+	// 	return orderbook.matchMarket(order)
+	// case KindLimit:
+	// 	return orderbook.matchLimit(order), nil
+	// default:
+	// 	return nil, nil
+	// }
 }
