@@ -12,26 +12,40 @@ type RestOrderList struct{
 }
 
 type Orderbook struct {
-	Bids *RestOrder
-	Asks *RestOrder
+	Bids RestOrderList
+	Asks RestOrderList
 }
 
 func New() *Orderbook {
 	return &Orderbook{}
 }
 
-func (order *RestOrder) append(newOrd *RestOrder) *RestOrder {
-	if order == nil{
-		order = newOrd
-		return order
+func (list *RestOrderList) appendFront(newOrd *RestOrder){
+	if list.head == nil{
+		fmt.Println("YES")
+		list.head = newOrd
+		return
 	}
-	next := order.next
-	order.next = newOrd
-	newOrd.next = next
-	return order
+	fmt.Println("NO")
+	newOrd.next = list.head
+	list.head = newOrd
+	return
 }
 
-func (order *RestOrder) iterator() (chan *RestOrder, chan bool) {
+// func (order *RestOrder) append(newOrd *RestOrder) *RestOrder {
+// 	if order == nil{
+// 		order = newOrd
+// 		return order
+// 	}
+// 	next := order.next
+// 	order.next = newOrd
+// 	newOrd.next = next
+// 	return order
+// }
+
+func (list *RestOrderList) iterator() (chan *RestOrder, chan bool) {
+	var order *RestOrder = list.head
+
 	res := make(chan *RestOrder)
 	stop := make(chan bool, 1)
 
@@ -64,11 +78,19 @@ func putOrderToRest(list **RestOrder, order *RestOrder) {
 }
 
 func (orderbook *Orderbook) matchLimit(order *Order)  []*Trade{
+	// orderbook.Bids.appendFront(&RestOrder{order, nil})
+	// fmt.Println("BIDS:",orderbook.Bids.head)
+
+	// k:=orderbook.Bids
+	// k.appendFront(&RestOrder{order, nil})
+	// fmt.Println("KJBIDS:",k.head)
+	// return nil
+
 	var trades []*Trade = nil
 	fmt.Println("FIRST:", trades, order.Side, order.Price)
 
-	var mySideList **RestOrder
-	var targetSideList **RestOrder
+	var mySideList *RestOrderList
+	var targetSideList *RestOrderList
 	var accept func (*Order,*Order) bool
 
 	switch order.Side{
@@ -86,7 +108,9 @@ func (orderbook *Orderbook) matchLimit(order *Order)  []*Trade{
 		}
 	}
 
-	list, stopIter := (*targetSideList).iterator()
+	list, stopIter := targetSideList.iterator()
+	fmt.Println("Target:", targetSideList.head, "My", mySideList.head)
+
 	for restOrder := range list {
 			fmt.Println("OK:", trades, order.Side, order.Price, restOrder.order.Side,  restOrder.order.Price)
 		if accept(order, restOrder.order){
@@ -97,8 +121,10 @@ func (orderbook *Orderbook) matchLimit(order *Order)  []*Trade{
 		}
 	}
 	stopIter<-true
+	//orderbook.Bids.appendFront(&RestOrder{order, nil})
+	//orderbook.Bids.appendFront(&RestOrder{order, nil})
 	//orderbook.Bids = orderbook.Bids.append(&RestOrder{order, nil})
-	*mySideList = (*mySideList).append(&RestOrder{order, nil})
+	mySideList.appendFront(&RestOrder{order, nil})
 
 	return trades
 }
