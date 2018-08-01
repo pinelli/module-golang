@@ -1,7 +1,6 @@
 package orderbook
 
 import (
-	"fmt"
 	"sort"
 	"strconv"
 )
@@ -21,7 +20,10 @@ type Orderbook struct {
 }
 
 func New() *Orderbook {
-	return &Orderbook{nil, nil}
+	bids := make([]*Order, 0, 100)
+	asks := make([]*Order, 0, 100)
+	return &Orderbook{bids, asks}
+	//return &Orderbook{nil, nil}
 }
 
 func (orderbook *Orderbook) matchMarket(order *Order) ([]*Trade, *Order) {
@@ -29,11 +31,11 @@ func (orderbook *Orderbook) matchMarket(order *Order) ([]*Trade, *Order) {
 }
 
 func (order *Order) String() string {
-	return strconv.Itoa(int(order.Price))
+	return strconv.Itoa(int(order.Price)) + "vol:" + strconv.Itoa(int(order.Volume))
 }
 
 func (trade *Trade) String() string {
-	return strconv.Itoa(int(trade.Price))
+	return "Trade: " + strconv.Itoa(int(trade.Price)) + " vol: " + strconv.Itoa(int(trade.Volume))
 }
 
 func makeTrade(bid *Order, ask *Order, main Side) *Trade {
@@ -59,64 +61,73 @@ func makeTrade(bid *Order, ask *Order, main Side) *Trade {
 	return trade
 }
 
-func (orderbook *Orderbook) match(order *Order) (trades []*Trade) {
-	fmt.Println("FIRST:", trades, order.Side, order.Price)
+func processLeftVolume(list *[]*Order, order *Order) (reject *Order) {
+	if order.Kind == KindMarket {
+		return order
+	}
+	*list = append(*list, order)
+	if order.Side == SideAsk {
+		sort.Slice(*list, func(i, j int) bool {
+			return (*list)[i].Price < (*list)[j].Price
+		})
+	} else if order.Side == SideBid {
+		sort.Slice(*list, func(i, j int) bool {
+			return (*list)[i].Price > (*list)[j].Price
+		})
+	}
+	return nil
+}
 
+func (orderbook *Orderbook) match(order *Order) (trades []*Trade, reject *Order) {
 	var mySideList *[]*Order
 	var targetSideList *[]*Order
-	var accept func(*Order, *Order) bool
+	//var accept func(*Order, *Order) bool
 
 	switch order.Side {
 	case SideBid:
 		mySideList = &orderbook.Bids
 		targetSideList = &orderbook.Asks
-		accept = func(bid *Order, ask *Order) bool {
+		/*accept = func(bid *Order, ask *Order) bool {
 			return (order.Kind == KindMarket) || (bid.Price >= ask.Price)
-		}
+		}*/
 	case SideAsk:
 		mySideList = &orderbook.Asks
 		targetSideList = &orderbook.Bids
-		accept = func(ask *Order, bid *Order) bool {
+		/*accept = func(ask *Order, bid *Order) bool {
 			return (order.Kind == KindMarket) || (ask.Price <= bid.Price)
-		}
+		}*/
 	}
 
-	fmt.Printf("Target side: %v, nil:%v\n", targetSideList, targetSideList == nil)
-	for _, restOrder := range *targetSideList {
-		if accept(order, restOrder) {
-			var bid *Order
-			var ask *Order
-			if order.Side == SideBid {
-				bid = order
-				ask = restOrder
-			} else {
-				bid = restOrder
-				ask = order
-			}
+	for i := 0; i < len(*targetSideList); i++ {
+		var bid *Order
+		var ask *Order
+		if order.Side == SideBid {
+			bid = order
+			ask = (*targetSideList)[i]
+		} else {
+			bid = (*targetSideList)[i]
+			ask = order
+		}
 
+		//		if accept(order, (*targetSideList)[i]) {
+		if (order.Kind == KindMarket) || (ask.Price <= bid.Price) {
 			if trade := makeTrade(bid, ask, order.Side); trade != nil {
 				trades = append(trades, trade)
+				if (*targetSideList)[i].Volume == 0 {
+					(*targetSideList) = (*targetSideList)[:i+copy((*targetSideList)[i:], (*targetSideList)[i+1:])]
+					i--
+				}
 				if order.Volume == 0 {
 					return
 				}
 			}
-			fmt.Println("trades:", trades)
 		}
 	}
-	*mySideList = append(*mySideList, order)
-	if order.Side == SideAsk {
-		sort.Slice(*mySideList, func(i, j int) bool {
-			return (*mySideList)[i].Price < (*mySideList)[j].Price
-		})
-	} else if order.Side == SideBid {
-		sort.Slice(*mySideList, func(i, j int) bool {
-			return (*mySideList)[i].Price > (*mySideList)[j].Price
-		})
-	}
+	reject = processLeftVolume(mySideList, order)
 
-	return trades
+	return trades, reject
 }
 
 func (orderbook *Orderbook) Match(order *Order) ([]*Trade, *Order) {
-	return orderbook.match(order), nil
+	return orderbook.match(order)
 }
