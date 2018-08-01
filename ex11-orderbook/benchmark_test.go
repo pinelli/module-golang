@@ -28,7 +28,8 @@ func BenchmarkOrderbook(b *testing.B) {
 		b.ResetTimer()
 		for batch := range pipe {
 			for _, order := range batch {
-				book.Match(&order)
+				incoming := order
+				book.Match(&incoming)
 			}
 		}
 		b.StopTimer()
