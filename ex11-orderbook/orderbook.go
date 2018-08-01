@@ -9,10 +9,6 @@ type RestOrder struct {
 	next  *RestOrder
 }
 
-type RestOrderList struct {
-	list []*Order
-}
-
 type Orderbook struct {
 	Bids []*Order
 	Asks []*Order
@@ -22,10 +18,6 @@ func New() *Orderbook {
 	return &Orderbook{nil, nil}
 }
 
-func (orderbook *Orderbook) matchMarket(order *Order) ([]*Trade, *Order) {
-	return nil, nil
-}
-
 func min(a uint64, b uint64) uint64 {
 	if b <= a {
 		return b
@@ -33,84 +25,94 @@ func min(a uint64, b uint64) uint64 {
 	return a
 }
 
-func makeTrade(bid *Order, ask *Order, main Side) *Trade {
+func makeTrade(bid *Order, ask *Order, initiator Side) *Trade {
 	var price uint64
-	if main == SideAsk {
+
+	switch initiator{
+	case SideAsk:
 		price = bid.Price
-	} else {
+	case SideBid:
 		price = ask.Price
 	}
 
-	val := min(bid.Volume, ask.Volume)
+	amount := min(bid.Volume, ask.Volume)
+	bid.Volume -= amount
+	ask.Volume -= amount
 
-	bid.Volume -= val
-	ask.Volume -= val
-
-	return &Trade{bid, ask, val, price}
+	return &Trade{bid, ask, amount, price}
 }
 
-func processLeftVolume(list *[]*Order, order *Order) (reject *Order) {
-	if order.Kind == KindMarket {
-		return order
+func sortRestOrders(list *[]*Order, initiator Side){
+	switch initiator{ //sort in ascending order
+	case SideAsk:
+		sort.Slice(*list, func(i, j int) bool {return (*list)[i].Price < (*list)[j].Price})
+	case SideBid://sort in descnding order
+		sort.Slice(*list, func(i, j int) bool {return (*list)[i].Price > (*list)[j].Price})
 	}
-	*list = append(*list, order)
-	if order.Side == SideAsk {
-		sort.Slice(*list, func(i, j int) bool {
-			return (*list)[i].Price < (*list)[j].Price
-		})
-	} else if order.Side == SideBid {
-		sort.Slice(*list, func(i, j int) bool {
-			return (*list)[i].Price > (*list)[j].Price
-		})
+}
+
+func processLeftVolume(myRestOrders *[]*Order, initiator *Order) (reject *Order) {
+	if initiator.Kind == KindMarket {
+		return initiator
 	}
+
+	newOrder := *initiator
+	*myRestOrders = append(*myRestOrders, &newOrder)
+
+	sortRestOrders(myRestOrders, initiator.Side)
 	return nil
 }
 
-func lists(orderbook *Orderbook, order *Order) (mySideList *[]*Order, targetSideList *[]*Order) {
+func restOrders(orderbook *Orderbook, order *Order) (myRestOrders *[]*Order, targetRestOrders *[]*Order) {
 	switch order.Side {
 	case SideBid:
-		mySideList = &orderbook.Bids
-		targetSideList = &orderbook.Asks
+		myRestOrders = &orderbook.Bids
+		targetRestOrders = &orderbook.Asks
 	case SideAsk:
-		mySideList = &orderbook.Asks
-		targetSideList = &orderbook.Bids
+		myRestOrders = &orderbook.Asks
+		targetRestOrders = &orderbook.Bids
 	}
 	return
 }
 
-func sides(order *Order, target *[]*Order, i int) (bid *Order, ask *Order) {
-	if order.Side == SideBid {
-		bid = order
-		ask = (*target)[i]
-	} else {
-		bid = (*target)[i]
-		ask = order
+func sides(initiator *Order, target *Order) (bid *Order, ask *Order) {
+	switch initiator.Side {
+	case SideBid:
+		bid = initiator
+		ask = target
+	case SideAsk:
+		bid = target
+		ask = initiator
 	}
 	return
 }
-func (orderbook *Orderbook) match(order *Order) (trades []*Trade, reject *Order) {
-	mySideList, targetSideList := lists(orderbook, order)
 
-	for i := 0; i < len(*targetSideList); i++ {
-		bid, ask := sides(order, targetSideList, i)
+func delRestOrdIfFulfilled(target *[]*Order,  i *int){
+	if (*target)[*i].Volume == 0 {
+		(*target) = (*target)[:*i+copy((*target)[*i:], (*target)[*i+1:])]
+		(*i)--
+	}
+}
 
-		if (order.Kind == KindMarket) || (ask.Price <= bid.Price) {
-			if trade := makeTrade(bid, ask, order.Side); trade != nil {
-				trades = append(trades, trade)
-				if (*targetSideList)[i].Volume == 0 {
-					(*targetSideList) = (*targetSideList)[:i+copy((*targetSideList)[i:], (*targetSideList)[i+1:])]
-					i--
-				}
-				if order.Volume == 0 {
-					return
-				}
+func (orderbook *Orderbook) Match(order *Order) (trades []*Trade, reject *Order) {
+	myRestOrders, targetRestOrders := restOrders(orderbook, order)
+
+	for i := 0; i < len(*targetRestOrders); i++ {
+		bid, ask := sides(order, (*targetRestOrders)[i])
+
+		if (order.Kind == KindMarket) || (ask.Price <= bid.Price) { // price is suitable
+			trade := makeTrade(bid, ask, order.Side);
+			trades = append(trades, trade)
+
+			delRestOrdIfFulfilled(targetRestOrders, &i)
+
+			if order.Volume == 0 { //order fulfilled
+				return
 			}
+		}else{ //there is no suitable price among resting orders
+			break
 		}
 	}
-	reject = processLeftVolume(mySideList, order)
-	return trades, reject
-}
-
-func (orderbook *Orderbook) Match(order *Order) ([]*Trade, *Order) {
-	return orderbook.match(order)
+	reject = processLeftVolume(myRestOrders, order) //reject or add to resting orders
+	return
 }
