@@ -11,22 +11,6 @@ type Cipher interface {
 func prep(str string) string {
 	res := ""
 	for _, rune := range str {
-		switch rune {
-		case ' ':
-			continue
-		case ',':
-			continue
-		case '.':
-			continue
-		case '!':
-			continue
-		case '-':
-			continue
-		case '@':
-			continue
-		case '#':
-			continue
-		}
 		if 65 <= rune && rune <= 90 {
 			res += string(rune + 32)
 		} else if rune < 97 || rune > 122 {
@@ -200,22 +184,6 @@ func validate(str string) bool {
 	onlyA := true
 
 	for _, rune := range str {
-		switch rune {
-		case ' ':
-			return false
-		case ',':
-			return false
-		case '.':
-			return false
-		case '!':
-			return false
-		case '-':
-			return false
-		case '@':
-			return false
-		case '#':
-			return false
-		}
 		if 65 <= rune && rune <= 90 {
 			return false
 		} else if rune < 97 || rune > 122 {
