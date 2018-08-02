@@ -4,23 +4,13 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
-	"sync"
 	"time"
+	"path/filepath"
 
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb"
+	//raftfastlog "github.com/tidwall/raft-fastlog"
 )
-
-type Store struct {
-	RaftDir  string
-	RaftBind string
-
-	mu sync.Mutex
-	m  map[string]string // The key-value store for the system.
-
-	raft *raft.Raft // The consensus mechanism
-}
 
 func setRaftDir() {
 
@@ -31,11 +21,13 @@ func (s *Store) Open(localID string) error {
 	config := raft.DefaultConfig()
 	config.LocalID = raft.ServerID(localID)
 
+	s.m = make(map[string]string)
 	// Setup Raft communication.
 	addr, err := net.ResolveTCPAddr("tcp", s.RaftBind)
 	if err != nil {
 		return err
 	}
+
 	transport, err := raft.NewTCPTransport(s.RaftBind, addr, 3, 10*time.Second, os.Stderr)
 	if err != nil {
 		return err
@@ -47,6 +39,7 @@ func (s *Store) Open(localID string) error {
 		return fmt.Errorf("file snapshot store: %s", err)
 	}
 
+
 	// Create the log store and stable store.
 	var logStore raft.LogStore
 	var stableStore raft.StableStore
@@ -54,15 +47,39 @@ func (s *Store) Open(localID string) error {
 	if err != nil {
 		return fmt.Errorf("new bolt store: %s", err)
 	}
-	logStore = boltDB
-	stableStore = boltDB
+			logStore = boltDB
+		stableStore = boltDB
+	//logStore, errlog := raftfastlog.NewFastLogStore("kv/raftfastlog2/log92.log", raftfastlog.Low, os.Stdout)//boltDB
+	//stableStore, errStable := raftfastlog.NewFastLogStore("kv/raftfastlog2/stable92.log", raftfastlog.Low, os.Stdout)//boltDB
 
+	// if errlog != nil{
+	// 	fmt.Println("LOG ERROR --------------------------", errlog)
+	// }
+	// if errStable != nil{
+	// 	fmt.Println(errStable)
+	// }
 	// Instantiate the Raft systems.
 	ra, err := raft.NewRaft(config, (*fsm)(s), logStore, stableStore, snapshots, transport)
 	if err != nil {
 		return fmt.Errorf("new raft: %s", err)
 	}
 	s.raft = ra
+
+
+	// f := s.raft.AddVoter(raft.ServerID("nodeID1"), raft.ServerAddress("localhost:9090"), 0, 0)
+	// if f.Error() == nil {
+	// 	fmt.Println("AddNode: ")
+	// }else{
+	// 	fmt.Println("Node added: ", "addr")
+	// }
+
+
+	// f = s.raft.AddVoter(raft.ServerID("nodeID2"), raft.ServerAddress("localhost:9092"), 0, 0)
+	// if f.Error() == nil {
+	// 	fmt.Println("AddNode: ")
+	// }else{
+	// 	fmt.Println("Node added: ", "addr")
+	// }
 
 	configuration := raft.Configuration{
 		Servers: []raft.Server{
@@ -82,8 +99,34 @@ func KeyValue() {
 }
 
 func main() {
-		 store := Store{}
-		 store.RaftDir := "~/kv/db"
-		 store.RaftBind := "localhost:9090"
-		 store.Open()
+
+	
+
+		store := Store{}
+		store.RaftDir = "kv/raftfastlog/db"
+		store.RaftBind = "localhost:9091"
+
+
+		store.Open("0")
+
+		time.Sleep(6 * time.Second)
+
+		// err := store.Set("a", "5")
+		// fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>", err)
+
+		// val, err := store.Get("a")
+		//  //err := store.Delete("a")
+		//   //fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>", err)
+		// fmt.Println(">>>>>>>>>>>>>>", err, ":", val)
+
+		f := store.raft.AddVoter(raft.ServerID("st1"), raft.ServerAddress("localhost:9092"), 0, 0)
+		if f.Error() == nil {
+			fmt.Println("AddNode: ")
+		}else{
+			fmt.Println("Node added: ", "addr")
+	 	}
+	 	store.raft.AddVoter(raft.ServerID("st1"), raft.ServerAddress("localhost:9090"), 0, 0)
+
+
+		 select{}
 }
