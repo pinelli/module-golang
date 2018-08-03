@@ -9,9 +9,11 @@ import (
 	"time"
 )
 
-type Msg struct{
-	n big.Int
+type Response struct{
+	n *big.Int
+	time time.Duration
 }
+
 
 func connect(addr string) net.Conn{
 	conn, err := net.Dial("tcp", addr)
@@ -32,24 +34,24 @@ func send(conn net.Conn, msg *big.Int) {
 	}
 }
 
-func receive(conn net.Conn, msg *big.Int) {
-	// encoder := json.NewEncoder(conn)
-	// err := encoder.Encode(&msg)
-	// if err != nil {
-	// 	fmt.Println("Error encoding message")
-	// 	os.Exit(1)
-	// }
+func receive(conn net.Conn, msg *big.Int, time *time.Duration) {
 
-	//res *big.Int
 	d := json.NewDecoder(conn)
 
-	err := d.Decode(&msg)
+	resp := Response{}
+	err := d.Decode(&resp)
 
 	if err != nil {
 		fmt.Println("Error decoding message")
 		os.Exit(1)
 	}
-	fmt.Println("Message--------:", msg)
+
+	msg = resp.n
+		fmt.Println("OK:", resp)
+	*time = resp.time
+
+
+	fmt.Println("Message--------:", msg, *time)
 	a := msg
 	fmt.Println("A:", a)
 
@@ -67,10 +69,12 @@ func main(){
 	//-------------------------------------------------
 	num1 := big.NewInt(100)
 	var res1 *big.Int = big.NewInt(0)
+	var res2 *time.Duration
+
 
 	send(conn, num1)
-	receive(conn, res1)
+	receive(conn, res1, res2)
 
-	fmt.Println("Res: ", res1)
+	fmt.Println("Res: ", res1, res2)
 	select{}
 }

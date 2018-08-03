@@ -6,10 +6,16 @@ import (
 	"net"
 	"os"
 	"math/big"
+	"time"
 )
 
 type Server struct {
 	Host    string
+}
+
+type Response struct{
+	n *big.Int
+	time time.Duration
 }
 
 func CreateServer(host string) *Server {
@@ -21,10 +27,12 @@ func (server *Server) Run() {
 	go server.Listen()
 }
 
-func (server *Server) Send(num *big.Int, time int, conn net.Conn) {
-	fmt.Println("Sending...", num)
+func (server *Server) Send(num *big.Int, time time.Duration, conn net.Conn) {
+	resp := Response{num, time}
+	fmt.Printf("Sending...%#v", resp)
+
 	encoder := json.NewEncoder(conn)
-	err := encoder.Encode(&num)
+	err := encoder.Encode(resp)
 
 	if err != nil {
 		fmt.Println("Error encoding message")
