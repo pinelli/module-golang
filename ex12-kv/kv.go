@@ -103,13 +103,15 @@ func main() {
 	
 
 		store := Store{}
-		store.RaftDir = "kv/raftfastlog/db"
+		store.RaftDir = "kv/raftfastlog/db/1"
 		store.RaftBind = "localhost:9091"
 
 
 		store.Open("0")
 
 		time.Sleep(6 * time.Second)
+
+		store.Join("1", "localhost:9090")
 
 		// err := store.Set("a", "5")
 		// fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>", err)
@@ -119,13 +121,13 @@ func main() {
 		//   //fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>", err)
 		// fmt.Println(">>>>>>>>>>>>>>", err, ":", val)
 
-		f := store.raft.AddVoter(raft.ServerID("st1"), raft.ServerAddress("localhost:9092"), 0, 0)
-		if f.Error() == nil {
-			fmt.Println("AddNode: ")
-		}else{
-			fmt.Println("Node added: ", "addr")
-	 	}
-	 	store.raft.AddVoter(raft.ServerID("st1"), raft.ServerAddress("localhost:9090"), 0, 0)
+		// f := store.raft.AddVoter(raft.ServerID("st1"), raft.ServerAddress("localhost:9092"), 0, 0)
+		// if f.Error() == nil {
+		// 	fmt.Println("AddNode: ")
+		// }else{
+		// 	fmt.Println("Node added: ", "addr")
+	 // 	}
+	 // 	store.raft.AddVoter(raft.ServerID("st1"), raft.ServerAddress("localhost:9090"), 0, 0)
 
 
 		 select{}
