@@ -24,15 +24,23 @@ func (server *Server) Run() {
 	go server.Listen()
 }
 
-/*
-func (server *Server) Send(runes []rune, conn net.Conn) {
-	if err != nil {
-		fmt.Println("Error encoding message")
-		conn.Close()
-		return
+func (server *Server) Send(cmdStr, valStr string, conn net.Conn) {
+	cmd := []byte(cmdStr)
+	val := []byte(valStr)
+
+	for i := 0; i < cmdLen; i++ {
+		_, e := conn.Write(cmd[i : i+1])
+		if e != nil {
+			return
+		}
+	}
+	for i := 0; i < valLen; i++ {
+		_, e := conn.Write(val[i : i+1])
+		if e != nil {
+			return
+		}
 	}
 }
-*/
 
 func (server *Server) Listen() {
 	ln, err := net.Listen("tcp", server.Host)
@@ -58,19 +66,19 @@ func readBytes(conn net.Conn) (string, string, string, error) {
 	val := make([]byte, valLen, valLen)
 
 	for i := 0; i < cmdLen; i++ {
-		_, e := conn.Read(cmd[i : i+1]) //_, err
+		_, e := conn.Read(cmd[i : i+1])
 		if e != nil {
 			return "", "", "", e
 		}
 	}
 	for i := 0; i < keyLen; i++ {
-		_, e := conn.Read(key[i : i+1]) //_, err
+		_, e := conn.Read(key[i : i+1])
 		if e != nil {
 			return "", "", "", e
 		}
 	}
 	for i := 0; i < valLen; i++ {
-		_, e := conn.Read(val[i : i+1]) //_, err
+		_, e := conn.Read(val[i : i+1])
 		if e != nil {
 			return "", "", "", e
 		}
@@ -83,12 +91,16 @@ func readBytes(conn net.Conn) (string, string, string, error) {
 	return cmdStr, keyStr, valStr, nil
 }
 
+func
 func (server *Server) handleConnection(conn net.Conn) {
 	cmd, key, val, err := readBytes(conn)
 	if err != nil {
 		return
 	}
+
 	fmt.Println("Request->>", cmd, ":", key, ":", val)
-	//	server.Send(runes, c)
+	resVal, err := execute(cmd, key, val)
+	server.Send(cmd, val, conn)
+
 	conn.Close()
 }
