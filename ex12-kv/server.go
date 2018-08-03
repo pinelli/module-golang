@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-const commandLen = 1
+const cmdLen = 1
 const keyLen = 3
 const valLen = 3
 
@@ -52,24 +52,43 @@ func (server *Server) Listen() {
 	}
 }
 
-func readBytes(conn net.Conn) (string, error) {
-	res := make([]byte, 25, 25)
-	for i := 0; i < 3; i++ {
-		_, err := conn.Read(res[i : i+1]) //_, err
-		if err != nil {
-			return "", err
+func readBytes(conn net.Conn) (string, string, string, error) {
+	cmd := make([]byte, cmdLen, cmdLen)
+	key := make([]byte, keyLen, keyLen)
+	val := make([]byte, valLen, valLen)
+
+	for i := 0; i < cmdLen; i++ {
+		_, e := conn.Read(cmd[i : i+1]) //_, err
+		if e != nil {
+			return "", "", "", e
 		}
 	}
-	str := string(res)
-	return str, nil
+	for i := 0; i < keyLen; i++ {
+		_, e := conn.Read(key[i : i+1]) //_, err
+		if e != nil {
+			return "", "", "", e
+		}
+	}
+	for i := 0; i < valLen; i++ {
+		_, e := conn.Read(val[i : i+1]) //_, err
+		if e != nil {
+			return "", "", "", e
+		}
+	}
+
+	cmdStr := string(cmd)
+	keyStr := string(key)
+	valStr := string(val)
+
+	return cmdStr, keyStr, valStr, nil
 }
 
 func (server *Server) handleConnection(conn net.Conn) {
-	str, err := readBytes(conn)
+	cmd, key, val, err := readBytes(conn)
 	if err != nil {
 		return
 	}
-	fmt.Println("Request:", str)
+	fmt.Println("Request->>", cmd, ":", key, ":", val)
 	//	server.Send(runes, c)
 	conn.Close()
 }
