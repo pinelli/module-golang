@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -76,9 +77,18 @@ func (server *Server) handleConnection(c net.Conn) {
 			}
 			return
 		}
-		fmt.Println("Message:", msg)
-		server.Send(msg, time.Duration(5), c)
-	}
 
-	//c.Close()
+		val, _ := strconv.Atoi(msg.String())
+		fmt.Println("Message:", msg)
+
+		if val < 0 {
+			server.Send(big.NewInt(-1), time.Duration(0), c)
+		} else {
+			start := time.Now()
+			fib := fibonacci(val)
+			elapsed := time.Since(start)
+			server.Send(fib, elapsed, c)
+
+		}
+	}
 }

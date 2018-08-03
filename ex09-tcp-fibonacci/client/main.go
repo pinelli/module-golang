@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -16,6 +17,7 @@ type Response struct {
 
 func connect(addr string) net.Conn {
 	conn, err := net.Dial("tcp", addr)
+
 	if err != nil {
 		fmt.Println("Cannot send message: ", err)
 		os.Exit(1)
@@ -26,6 +28,7 @@ func connect(addr string) net.Conn {
 func send(conn net.Conn, msg *big.Int) {
 	encoder := json.NewEncoder(conn)
 	err := encoder.Encode(&msg)
+
 	if err != nil {
 		fmt.Println("Error encoding message")
 		os.Exit(1)
@@ -33,60 +36,43 @@ func send(conn net.Conn, msg *big.Int) {
 	}
 }
 
-func receive(conn net.Conn, msg *big.Int, time *time.Duration) {
-
+func receive(conn net.Conn) (*big.Int, time.Duration) {
 	d := json.NewDecoder(conn)
-
-	//var resp := Response{}
 	var resp Response
 	err := d.Decode(&resp)
 
 	if err != nil {
-		fmt.Println("Error decoding message")
+		//fmt.Println("Error decoding message")
 		os.Exit(1)
 	}
+	return resp.N, resp.Time
+}
 
-	msg = resp.N
-	fmt.Println("OK:", resp)
-	*time = resp.Time
+func reader(jobs chan int64) {
 
-	fmt.Println(">>>>>>>>>>>")
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Split(bufio.ScanLines)
 
-	fmt.Println("Message--------:", msg, *time)
-	a := msg
-	fmt.Println("A:", a)
+	for scanner.Scan() {
+		txt := scanner.Text()
 
+		var job int64
+		fmt.Sscanf(txt, "%d\n", &job)
+
+		jobs <- job
+	}
 }
 
 func main() {
 	conn := connect("localhost:9090")
-	// num := big.NewInt(5)
 
-	// var res *big.Int = big.NewInt(0)
-	// send(conn, num)
-	// receive(conn, res)
+	var jobs = make(chan int64)
+	go reader(jobs)
 
-	time.Sleep(200 * time.Millisecond)
-	//-------------------------------------------------
-	num1 := big.NewInt(100)
-	var res1 *big.Int = big.NewInt(0)
-	var res2 time.Duration = time.Duration(1)
+	for job := range jobs {
+		send(conn, big.NewInt(job))
+		n, t := receive(conn)
 
-	send(conn, num1)
-	receive(conn, res1, &res2)
-
-	fmt.Println("Res: ", res1, &res2)
-
-	time.Sleep(200 * time.Millisecond)
-	//-------------------------------------------------
-	num1 = big.NewInt(300)
-	res1 = big.NewInt(0)
-	res2 = time.Duration(1)
-
-	send(conn, num1)
-	receive(conn, res1, &res2)
-
-	fmt.Println("Res: ", res1, &res2)
-
-	select {}
+		fmt.Println(n, t)
+	}
 }
