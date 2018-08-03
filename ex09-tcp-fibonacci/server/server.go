@@ -3,19 +3,19 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net"
 	"os"
-	"math/big"
 	"time"
 )
 
 type Server struct {
-	Host    string
+	Host string
 }
 
-type Response struct{
-	n *big.Int
-	time time.Duration
+type Response struct {
+	N    *big.Int
+	Time time.Duration
 }
 
 func CreateServer(host string) *Server {
@@ -62,22 +62,22 @@ func (server *Server) Listen() {
 func (server *Server) handleConnection(c net.Conn) {
 	d := json.NewDecoder(c)
 	for {
-	fmt.Println("iteration")
-	var msg *big.Int
+		fmt.Println("iteration")
+		var msg *big.Int
 
-	err := d.Decode(&msg)
+		err := d.Decode(&msg)
 
-	if err != nil {
-		if err.Error() == "EOF"{
-			fmt.Println("Client" ,c.RemoteAddr(), "disconnected")
-		}else{
-			fmt.Println("Error decoding message", err)
-			c.Close()	
+		if err != nil {
+			if err.Error() == "EOF" {
+				fmt.Println("Client", c.RemoteAddr(), "disconnected")
+			} else {
+				fmt.Println("Error decoding message", err)
+				c.Close()
+			}
+			return
 		}
-		return
-	}
-	fmt.Println("Message:", msg)
-	server.Send(msg, 5, c)
+		fmt.Println("Message:", msg)
+		server.Send(msg, time.Duration(5), c)
 	}
 
 	//c.Close()

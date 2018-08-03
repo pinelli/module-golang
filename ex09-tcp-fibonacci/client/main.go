@@ -3,19 +3,18 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net"
 	"os"
-	"math/big"
 	"time"
 )
 
-type Response struct{
-	n *big.Int
-	time time.Duration
+type Response struct {
+	N    *big.Int
+	Time time.Duration
 }
 
-
-func connect(addr string) net.Conn{
+func connect(addr string) net.Conn {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		fmt.Println("Cannot send message: ", err)
@@ -38,7 +37,8 @@ func receive(conn net.Conn, msg *big.Int, time *time.Duration) {
 
 	d := json.NewDecoder(conn)
 
-	resp := Response{}
+	//var resp := Response{}
+	var resp Response
 	err := d.Decode(&resp)
 
 	if err != nil {
@@ -46,10 +46,11 @@ func receive(conn net.Conn, msg *big.Int, time *time.Duration) {
 		os.Exit(1)
 	}
 
-	msg = resp.n
-		fmt.Println("OK:", resp)
-	*time = resp.time
+	msg = resp.N
+	fmt.Println("OK:", resp)
+	*time = resp.Time
 
+	fmt.Println(">>>>>>>>>>>")
 
 	fmt.Println("Message--------:", msg, *time)
 	a := msg
@@ -57,7 +58,7 @@ func receive(conn net.Conn, msg *big.Int, time *time.Duration) {
 
 }
 
-func main(){
+func main() {
 	conn := connect("localhost:9090")
 	// num := big.NewInt(5)
 
@@ -69,12 +70,23 @@ func main(){
 	//-------------------------------------------------
 	num1 := big.NewInt(100)
 	var res1 *big.Int = big.NewInt(0)
-	var res2 *time.Duration
-
+	var res2 time.Duration = time.Duration(1)
 
 	send(conn, num1)
-	receive(conn, res1, res2)
+	receive(conn, res1, &res2)
 
-	fmt.Println("Res: ", res1, res2)
-	select{}
+	fmt.Println("Res: ", res1, &res2)
+
+	time.Sleep(200 * time.Millisecond)
+	//-------------------------------------------------
+	num1 = big.NewInt(300)
+	res1 = big.NewInt(0)
+	res2 = time.Duration(1)
+
+	send(conn, num1)
+	receive(conn, res1, &res2)
+
+	fmt.Println("Res: ", res1, &res2)
+
+	select {}
 }
