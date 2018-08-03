@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"time"
 	"path/filepath"
+	"time"
 
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb"
@@ -39,7 +39,6 @@ func (s *Store) Open(localID string) error {
 		return fmt.Errorf("file snapshot store: %s", err)
 	}
 
-
 	// Create the log store and stable store.
 	var logStore raft.LogStore
 	var stableStore raft.StableStore
@@ -47,8 +46,8 @@ func (s *Store) Open(localID string) error {
 	if err != nil {
 		return fmt.Errorf("new bolt store: %s", err)
 	}
-			logStore = boltDB
-		stableStore = boltDB
+	logStore = boltDB
+	stableStore = boltDB
 	//logStore, errlog := raftfastlog.NewFastLogStore("kv/raftfastlog2/log92.log", raftfastlog.Low, os.Stdout)//boltDB
 	//stableStore, errStable := raftfastlog.NewFastLogStore("kv/raftfastlog2/stable92.log", raftfastlog.Low, os.Stdout)//boltDB
 
@@ -65,14 +64,12 @@ func (s *Store) Open(localID string) error {
 	}
 	s.raft = ra
 
-
 	// f := s.raft.AddVoter(raft.ServerID("nodeID1"), raft.ServerAddress("localhost:9090"), 0, 0)
 	// if f.Error() == nil {
 	// 	fmt.Println("AddNode: ")
 	// }else{
 	// 	fmt.Println("Node added: ", "addr")
 	// }
-
 
 	// f = s.raft.AddVoter(raft.ServerID("nodeID2"), raft.ServerAddress("localhost:9092"), 0, 0)
 	// if f.Error() == nil {
@@ -100,35 +97,27 @@ func KeyValue() {
 
 func main() {
 
-	
+	server := CreateServer("localhost:8080")
+	server.Run()
 
-		store := Store{}
-		store.RaftDir = "kv/raftfastlog/db/1"
-		store.RaftBind = "localhost:9091"
+	select {}
+	store := Store{}
+	store.RaftDir = "kv/raftfastlog/db/1"
+	store.RaftBind = "localhost:9091"
 
+	store.Open("0")
 
-		store.Open("0")
+	time.Sleep(6 * time.Second)
 
-		time.Sleep(6 * time.Second)
+	//store.Join("1", "localhost:9090")
 
-		store.Join("1", "localhost:9090")
+	err := store.Set("a", "5")
+	// fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>", err)
 
-		// err := store.Set("a", "5")
-		// fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>", err)
+	val, err := store.Get("a")
+	//  //err := store.Delete("a")
+	//   //fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>", err)
+	fmt.Println(">>>>>>>>>>>>>>", err, ":", val)
 
-		// val, err := store.Get("a")
-		//  //err := store.Delete("a")
-		//   //fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>", err)
-		// fmt.Println(">>>>>>>>>>>>>>", err, ":", val)
-
-		// f := store.raft.AddVoter(raft.ServerID("st1"), raft.ServerAddress("localhost:9092"), 0, 0)
-		// if f.Error() == nil {
-		// 	fmt.Println("AddNode: ")
-		// }else{
-		// 	fmt.Println("Node added: ", "addr")
-	 // 	}
-	 // 	store.raft.AddVoter(raft.ServerID("st1"), raft.ServerAddress("localhost:9090"), 0, 0)
-
-
-		 select{}
+	select {}
 }
