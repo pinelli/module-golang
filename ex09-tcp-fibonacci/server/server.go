@@ -11,7 +11,8 @@ import (
 )
 
 type Server struct {
-	Host string
+	Host  string
+	Cache map[int]*big.Int
 }
 
 type Response struct {
@@ -20,7 +21,8 @@ type Response struct {
 }
 
 func CreateServer(host string) *Server {
-	server := &Server{host}
+
+	server := &Server{host, make(map[int]*big.Int)}
 	return server
 }
 
@@ -80,12 +82,15 @@ func (server *Server) handleConnection(c net.Conn) {
 
 		val, _ := strconv.Atoi(msg.String())
 		fmt.Println("Message:", msg)
-
 		if val < 0 {
 			server.Send(big.NewInt(-1), time.Duration(0), c)
+		} else if cached, exist := server.Cache[val]; exist {
+			server.Send(cached, time.Duration(0), c)
 		} else {
 			start := time.Now()
 			fib := fibonacci(val)
+			server.Cache[val] = fib
+			fmt.Println("MyCache: ", server.Cache)
 			elapsed := time.Since(start)
 			server.Send(fib, elapsed, c)
 
