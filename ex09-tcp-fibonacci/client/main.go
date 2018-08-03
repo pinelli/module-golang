@@ -61,6 +61,7 @@ func reader(jobs chan int64) {
 
 		jobs <- job
 	}
+	close(jobs)
 }
 
 func main() {
@@ -73,6 +74,6 @@ func main() {
 		send(conn, big.NewInt(job))
 		n, t := receive(conn)
 
-		fmt.Println(n, t)
+		fmt.Fprintln(os.Stdout, t, n)
 	}
 }
